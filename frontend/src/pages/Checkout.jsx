@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
-import { Lock, User, Mail, Phone, ArrowLeft, Check, IndianRupee } from 'lucide-react';
+import {  User, Mail, Phone, ArrowLeft, Check, IndianRupee } from 'lucide-react';
 import { setCurrentEvent } from '../store/slices/eventsSlice';
 import { createBooking } from '../helpers/createBooking,js'
 import { makePayment } from '../helpers/makePayment';
