@@ -34,7 +34,7 @@ connectDB()
 // API Routes
 app.use('/api/users',userRoutes );
 app.use('/api/oauth',oAuth );
-app.use('/api/events', eventRoutes); // <-- THIS LINE IS CRUCIAL
+app.use('/api/events', eventRoutes); 
 app.use('/api/organizer',organizerRoute );
 app.use('/api/booking',bookingRoute );
 app.use('/api/chatbot',chatbotRoute );

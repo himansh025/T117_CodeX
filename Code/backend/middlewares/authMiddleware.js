@@ -48,4 +48,35 @@ const organizerOnly = (req, res, next) => {
   next();
 };
 
-module.exports = { protect, organizerOnly };
+const optionalProtect = async (req, res, next) => {
+  try {
+    let token;
+
+    if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
+      token = req.headers.authorization.split(" ")[1];
+    }
+
+    if (!token) {
+      req.user = null; // No user, proceed as guest
+      return next();
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.id);
+
+    if (!user) {
+      req.user = null; // Token valid but user not found? Treat as guest or error? 
+      // Safer to treat as guest if we want public access, but usually this means stale token. 
+      // Let's just proceed as guest.
+    } else {
+      req.user = user;
+    }
+    next();
+  } catch (err) {
+    // If token is invalid/expired, just treat as guest for optional routes
+    req.user = null;
+    next();
+  }
+};
+
+module.exports = { protect, organizerOnly, optionalProtect };

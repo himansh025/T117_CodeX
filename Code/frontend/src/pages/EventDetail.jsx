@@ -284,7 +284,13 @@ const EventDetail = () => {
                   <div className="space-y-6">
                     <div>
                       <h3 className="text-xl font-semibold text-gray-900 mb-3">Collab Buddy</h3>
-                    <EventCollaborationPanel eventId={event._id}/>
+                      {user ?(
+                        <EventCollaborationPanel eventId={event._id}/>
+                      ):(
+                        <>
+                        <p className="text-gray-500 text-center py-4">Please Login to Access This Feature</p>
+                        </>
+                      ) }
                     </div>
                   </div>
                 )}

@@ -63,7 +63,7 @@ function App() {
             <Route path="/events" element={<EventDiscovery />} />
             <Route path="/event/:id" element={<EventDetail />} />
 
-            
+
             {user?.role === "organizer" && (
               <>
                 <Route path="/create-event" element={<CreateEvent />} />
@@ -80,9 +80,9 @@ function App() {
             )}
           </Routes>
         </main>
-        {user && <Chatbot />}
+        <Chatbot />
         <Footer />
-                {user && <NotificationPopup />} {/* Render the notification pop-up if user is logged in */}
+        {user && <NotificationPopup />} {/* Render the notification pop-up if user is logged in */}
 
       </div>
     </Router>

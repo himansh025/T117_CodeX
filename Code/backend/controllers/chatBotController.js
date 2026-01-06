@@ -18,6 +18,11 @@ const INTENTS = {
     attendee_analytics: ['attendees', 'registered', 'participants', 'sold', 'analytics'],
     ticket_management: ['tickets', 'pricing', 'types', 'quantity', 'discount'],
     platform_help: ['how', 'tutorial', 'guide', 'help', 'instructions']
+  },
+  guest: {
+    event_search: ['events', 'find', 'search', 'available', 'upcoming', 'category'],
+    venue_info: ['venue', 'location', 'address', 'directions', 'parking', 'where'],
+    platform_help: ['how', 'register', 'login', 'signup', 'help', 'instructions']
   }
 };
 
@@ -104,8 +109,12 @@ const getDatabaseContext = async (intent, userId, userRole, query) => {
   return context;
 };
 
+// Import Groq SDK
+const Groq = require('groq-sdk');
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+
 // AI Response Generation
-const generateAIResponse = async (query, context, userRole) => {
+const generateAIResponse = async (query, context, userRole, intent) => {
   const systemPrompts = {
     user: `You are EventX Assistant helping an event attendee. Be friendly and helpful.
 
@@ -135,41 +144,79 @@ If asked about anything else, respond:
 "I can only help with EventX event management. Ask me about creating events, managing attendees, or platform features!"
 
 Current organizer context: ${JSON.stringify(context)}
+`,
+
+    guest: `You are EventX Assistant helping a visitor. Be friendly and helpful.
+
+ONLY answer questions about:
+- Upcoming events and searching for events
+- Venue locations and general information
+- How to register or login
+- General platform help
+
+If asked about bookings or tickets, respond:
+"Please login to view your bookings and tickets."
+
+If asked about anything else, respond:
+"I can only help with event information. Please login for more personalized assistance!"
+
+Current context: ${JSON.stringify(context)}
 `
   };
 
-  try {
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-pro" });
-
-    const promptText = `
+  const promptText = `
 ${systemPrompts[userRole] || systemPrompts.user}
 User query: "${query}"
 Provide a concise, helpful response based on the context data.
 `;
 
-    // Correct structure for Gemini 2.5 Pro
-    const result = await model.generateContent({
-      contents: [
+  // Try Groq First
+  try {
+    console.log("Attempting Groq...");
+    const chatCompletion = await groq.chat.completions.create({
+      messages: [
         {
-          parts: [
-            {
-              text: promptText
-            }
-          ]
-        }
-      ]
+          role: "user",
+          content: promptText,
+        },
+      ],
+      model: "llama-3.3-70b-versatile",
     });
 
-    // Access generated text safely
-        console.log("result",result?.response?.text());
+    const responseText = chatCompletion.choices[0]?.message?.content || "";
+    if (responseText) {
+      console.log("Groq Response:", responseText);
+      return responseText.trim();
+    }
+    throw new Error("Empty Groq response");
 
-    const responseText = result?.response?.text() || '';
-    console.log(responseText);
-    return responseText.trim();
+  } catch (groqError) {
+    console.error("Groq API error, falling back to Gemini:", groqError.message);
 
-  } catch (error) {
-    console.error("Gemini API error:", error);
-    return "I'm having trouble processing your request right now. Please try again in a moment.";
+    // Fallback to Gemini
+    try {
+      console.log("Attempting Gemini Fallback...");
+      const model = genAI.getGenerativeModel({ model: "gemini-2.5-pro" });
+      const result = await model.generateContent({
+        contents: [
+          {
+            parts: [
+              {
+                text: promptText
+              }
+            ]
+          }
+        ]
+      });
+
+      const responseText = result?.response?.text() || '';
+      console.log("Gemini Response:", responseText);
+      return responseText.trim();
+
+    } catch (geminiError) {
+      console.error("Gemini API error:", geminiError);
+      return "I'm having trouble processing your request right now. Please try again in a moment.";
+    }
   }
 };
 
@@ -185,21 +232,24 @@ exports.chatBotHandler = async (req, res) => {
       return res.status(400).json({ error: 'Message is required' });
     }
 
+    const userRole = user ? user.role : 'guest';
+    const userId = user ? user._id : null;
+
     // Classify user intent
-    const intent = classifyIntent(message, user.role);
+    const intent = classifyIntent(message, userRole);
     // console.log("175", intent);
 
     // Get relevant database context
-    const context = await getDatabaseContext(intent, user._id, user.role, message);
+    const context = await getDatabaseContext(intent, userId, userRole, message);
     // console.log("181", context);
 
     // Generate AI response
-    const aiResponse = await generateAIResponse(message, context, user.role, intent);
+    const aiResponse = await generateAIResponse(message, context, userRole, intent);
 
     res.json({
       response: aiResponse,
       intent: intent,
-      userRole: user.role
+      userRole: userRole
     });
 
   } catch (error) {
